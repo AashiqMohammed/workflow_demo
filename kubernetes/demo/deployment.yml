@@ -1,0 +1,64 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: $PROJECT_NAME
+  namespace: $NAME_SPACE
+spec:
+  rules:
+    - host: confugio-demo.mgt.eu
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: $PROJECT_NAME
+              servicePort: 80
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: $PROJECT_NAME
+  namespace: $NAME_SPACE
+spec:
+  selector:
+    app: $PROJECT_NAME
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: $PROJECT_NAME
+  namespace: $NAME_SPACE
+  labels:
+    app: $PROJECT_NAME
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: $PROJECT_NAME
+  template:
+    metadata:
+      labels:
+        app: $PROJECT_NAME
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - "server"
+      containers:
+        - name: $PROJECT_NAME
+          image: $REPOSITORY_URL/$NAME_SPACE/$PROJECT_NAME:$CI_COMMIT_SHA
+          env:
+            - name: NODE_ENV
+              value: "demo"
+          ports:
+            - containerPort: 3000
+      imagePullSecrets:
+        - name: aws-registry

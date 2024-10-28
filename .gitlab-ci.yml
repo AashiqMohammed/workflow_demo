@@ -1,0 +1,35 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  REPOSITORY_URL: 024691753892.dkr.ecr.eu-central-1.amazonaws.com
+  NAME_SPACE: mgt-frontend
+  PROJECT_NAME: configuration-workflow
+
+build:
+  stage: build
+  image: docker:latest
+  script:
+    - apk upgrade --no-cache && apk add --no-cache musl build-base py3-pip python3-dev
+    - pip3 install awscli
+    - $(aws ecr get-login --no-include-email --region eu-central-1)
+    - export DOCKER_API_VERSION=1.39
+    - docker build -t $REPOSITORY_URL/$NAME_SPACE/$PROJECT_NAME:$CI_COMMIT_SHA .
+    - docker push $REPOSITORY_URL/$NAME_SPACE/$PROJECT_NAME:$CI_COMMIT_SHA
+  only:
+    - master
+
+deploy:
+  image: wzrdtales/helm-kubectl
+  stage: deploy
+  script:
+    - echo "$DEMO_KUBE" > "./KUBECONFIG"
+    - export KUBECONFIG="./KUBECONFIG"
+    - mkdir .deployment
+    - envsubst < kubernetes/demo/deployment.yml > ./.deployment/deployment.yml
+    - kubectl apply -f ./.deployment/deployment.yml
+    - rm -r .deployment
+  when: manual
+  only:
+    - master
